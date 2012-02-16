@@ -1120,9 +1120,26 @@ void add_ext_magn_field_force(Particle *p1, Constraint_ext_magn_field *c)
 {
 #ifdef ROTATION
 #ifdef DIPOLES
-  p1->f.torque[0] += p1->r.dip[1]*c->ext_magn_field[2]-p1->r.dip[2]*c->ext_magn_field[1];
-  p1->f.torque[1] += p1->r.dip[2]*c->ext_magn_field[0]-p1->r.dip[0]*c->ext_magn_field[2];
-  p1->f.torque[2] += p1->r.dip[0]*c->ext_magn_field[1]-p1->r.dip[1]*c->ext_magn_field[0];
+  if (c->ext_magn_field_type & EXT_MAGN_FIELD_NONUNIFORM_ZI) {
+
+    double nuf[3], vp[3];
+    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[0][1]);
+    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[1][1]);
+    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[2][1]);
+  
+    vector_product(p1->r.dip, nuf, vp);
+    
+    p1->f.torque[0] += vp[0];
+    p1->f.torque[1] += vp[1];
+    p1->f.torque[2] += vp[2];
+
+  } else {
+    
+    p1->f.torque[0] += p1->r.dip[1]*c->ext_magn_field[2]-p1->r.dip[2]*c->ext_magn_field[1];
+    p1->f.torque[1] += p1->r.dip[2]*c->ext_magn_field[0]-p1->r.dip[0]*c->ext_magn_field[2];
+    p1->f.torque[2] += p1->r.dip[0]*c->ext_magn_field[1]-p1->r.dip[1]*c->ext_magn_field[0];
+    
+  }
 #endif
 #endif
 }
@@ -1130,7 +1147,20 @@ void add_ext_magn_field_force(Particle *p1, Constraint_ext_magn_field *c)
 double ext_magn_field_energy(Particle *p1, Constraint_ext_magn_field *c)
 {
 #ifdef DIPOLES
-     return -1.0 * scalar(c->ext_magn_field,p1->r.dip);
+
+  if (c->ext_magn_field_type & EXT_MAGN_FIELD_NONUNIFORM_ZI) {
+    
+    double nuf[3];
+    
+    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[0][1]);
+    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[1][1]);
+    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[2][1]);
+
+    return -1.0 * scalar(nuf,p1->r.dip);
+  } else {
+    return -1.0 * scalar(c->ext_magn_field,p1->r.dip);
+  }
+     
 #endif
   return 0;
 }
