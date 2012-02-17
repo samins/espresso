@@ -1002,9 +1002,13 @@ int tclcommand_constraint_parse_ext_magn_field(Constraint *con, Tcl_Interp *inte
   int i;
   con->type = CONSTRAINT_EXT_MAGN_FIELD;
   con->part_rep.p.type=-1;
-
-  for(i=0; i<3; i++)
+  
+  con->c.emfield.ext_magn_field_type = EXT_MAGN_FIELD_UNIFORM;
+  for(i=0; i<3; i++) {
      con->c.emfield.ext_magn_field[i] = 0.;
+     con->c.emfield.coef_nuf_zi[i][0] =0.;
+     con->c.emfield.coef_nuf_zi[i][1] =1.;
+  }
   if(argc < 3) {
       Tcl_AppendResult(interp, "usage: constraint ext_magn_field <x> <y> <z>", (char *) NULL);
       return (TCL_ERROR);
@@ -1022,13 +1026,9 @@ int tclcommand_constraint_parse_ext_magn_field(Constraint *con, Tcl_Interp *inte
     if(!strncmp(argv[0], "nonuniform_zi", strlen(argv[1]))) {
       argc -= 1; argv += 1;
       con->c.emfield.ext_magn_field_type = EXT_MAGN_FIELD_NONUNIFORM_ZI;
-      for(i=0; i<6; i++){
-        if (i >= argc) {
-          con->c.emfield.coef_nuf_zi[i/2][(int) fmod(i,2)] = (int) fmod(i,2) ? 1.0 : 0.0;
-        } else {
-          if (Tcl_GetDouble(interp, argv[i], &(con->c.emfield.coef_nuf_zi[i/2][(int) fmod(i,2)])) == TCL_ERROR)
-            return (TCL_ERROR);
-        }
+      for(i=0; i<argc; i++){
+        if (Tcl_GetDouble(interp, argv[i], &(con->c.emfield.coef_nuf_zi[i/2][(int) fmod(i,2)])) == TCL_ERROR)
+          return (TCL_ERROR);
       }
       argc -= 6; argv += 6;
     }
