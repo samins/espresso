@@ -1122,10 +1122,10 @@ void add_ext_magn_field_force(Particle *p1, Constraint_ext_magn_field *c)
 #ifdef DIPOLES
   if (c->ext_magn_field_type & EXT_MAGN_FIELD_NONUNIFORM_ZI) {
 
-    double nuf[3], vp[3];
-    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[0][1]);
-    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[1][1]);
-    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[2][1]);
+    double nuf[3], dnuf[3], vp[3];
+    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]+c->coef_nuf_zi[0][1]);
+    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]+c->coef_nuf_zi[1][1]);
+    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]+c->coef_nuf_zi[2][1]);
   
     vector_product(p1->r.dip, nuf, vp);
     
@@ -1133,6 +1133,12 @@ void add_ext_magn_field_force(Particle *p1, Constraint_ext_magn_field *c)
     p1->f.torque[1] += vp[1];
     p1->f.torque[2] += vp[2];
 
+    dnuf[0] = nuf[0]*c->coef_nuf_zi[0][0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]+c->coef_nuf_zi[0][1]);
+    dnuf[1] = nuf[1]*c->coef_nuf_zi[1][0] / (c->coef_nuf_zi[1][0]*p1->r.p[2]+c->coef_nuf_zi[1][1]);
+    dnuf[2] = nuf[2]*c->coef_nuf_zi[2][0] / (c->coef_nuf_zi[2][0]*p1->r.p[2]+c->coef_nuf_zi[2][1]);
+    
+    p1->f.f[2] += -1.0 * scalar(p1->r.dip,dnuf);
+    
   } else {
     
     p1->f.torque[0] += p1->r.dip[1]*c->ext_magn_field[2]-p1->r.dip[2]*c->ext_magn_field[1];
@@ -1152,9 +1158,9 @@ double ext_magn_field_energy(Particle *p1, Constraint_ext_magn_field *c)
     
     double nuf[3];
     
-    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[0][1]);
-    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[1][1]);
-    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]/box_l[2]+c->coef_nuf_zi[2][1]);
+    nuf[0] = c->ext_magn_field[0] / (c->coef_nuf_zi[0][0]*p1->r.p[2]+c->coef_nuf_zi[0][1]);
+    nuf[1] = c->ext_magn_field[1] / (c->coef_nuf_zi[1][0]*p1->r.p[2]+c->coef_nuf_zi[1][1]);
+    nuf[2] = c->ext_magn_field[2] / (c->coef_nuf_zi[2][0]*p1->r.p[2]+c->coef_nuf_zi[2][1]);
 
     return -1.0 * scalar(nuf,p1->r.dip);
   } else {
