@@ -42,27 +42,33 @@ namespace eval gibbs_ghmc {
     variable port 12000
     variable master ""
     variable beta 0
+    variable pressure 0
     # variables for # of attempts of volume and particles swapping / particles move 
     variable nvol 1
     variable npart 1
-		variable nmove 1
-		#variables for total # of attempts of in one MC cycle
-		variable mc_cycle 0
+    variable nmove 1
+    variable nexch 0
+    #variables for total # of attempts of in one MC cycle
+    variable mc_cycle 0
     #variable for total # of equllibration MC rounds
     variable sample_rounds 0
-		#variables for whthear to adjust volume and time steps
-		variable adjust_vol 0
-		variable adjust_dt 0
-		# max step in log V
+    #variables for whthear to adjust volume and time steps
+    variable adjust_vol 0
+    variable adjust_dt 0
+    # max step in log V
     variable Vmax 0
-		#MD stepsize array and dt_max
-		variable md_dt 0.01
-		variable dt_max 0.1
+    #MD stepsize array and dt_max
+    variable md_dt 0.01
+    variable dt_max 0.1
+    #number of particle types
+    variable ntypes 1
 
     # function calculating the swap volume probabilities
     variable swap_vol ""
     # function calculating the swap particle probabilities
     variable swap_part ""
+    # function calculating the exchanging particle probabilities
+    variable exch_part ""
     # name of the function moving the particles
     variable move_part ""
     # name of the function running the simulation
@@ -98,8 +104,12 @@ namespace eval gibbs_ghmc {
 	    return [eval ::$gibbs_ghmc::swap_vol $id $param1 $param2]
 	}
 	####
-	proc swap_part {id param1 param2} {
-	    return [eval ::$gibbs_ghmc::swap_part $id $param1 $param2]
+	proc swap_part {id param1 param2 param3} {
+	    return [eval ::$gibbs_ghmc::swap_part $id $param1 $param2 $param3]
+	}
+	####
+	proc exch_part {id param1 param2 param3} {
+	    return [eval ::$gibbs_ghmc::exch_part $id $param1 $param2 $param3]
 	}
 	####
 	proc move_part {id param1} {
@@ -150,9 +160,12 @@ namespace eval gibbs_ghmc {
 			puts $sock [swap_vol [lindex $msg 1] [lindex $msg 2] [lindex $msg 3]]
 		    }
  		    "swapprob_part" {
-			puts $sock [swap_part [lindex $msg 1] [lindex $msg 2] [lindex $msg 3]]
+			puts $sock [swap_part [lindex $msg 1] [lindex $msg 2] [lindex $msg 3] [lindex $msg 4]]
 		    }
-				"moveprob_part" {
+ 		    "exchprob_part" {
+			puts $sock [exch_part [lindex $msg 1] [lindex $msg 2] [lindex $msg 3] [lindex $msg 4]]
+		    }
+		    "moveprob_part" {
 			puts $sock [move_part [lindex $msg 1] [lindex $msg 2]]
 		    }
 		    default { error "illegal request from master \"[lindex $msg 0]\"" }
@@ -362,22 +375,35 @@ namespace eval gibbs_ghmc {
 		if {$param2 == ""} { break }
 		
 		#random walk in ln V1/V2
-		set N1 [lindex $param1 1]
-		set N2 [lindex $param2 1]
-		set V1_old [lindex $param1 0]
-		set V2_old [lindex $param2 0]
-		set Vtot [expr $V1_old+$V2_old]
 
-		set lnV_new [expr log($V1_old/$V2_old)+([t_random]-0.5)*$gibbs_ghmc::Vmax]
-		set V1_new [expr $Vtot*exp($lnV_new)/(1+exp($lnV_new))]
-		set V2_new [expr $Vtot-$V1_new]    
+# 		set N1 [lindex $param1 1]
+# 		set N2 [lindex $param2 1]
+# 		set V1_old [lindex $param1 0]
+# 		set V2_old [lindex $param2 0]
+
+    lassign $param1 V1_old N1 T1
+    lassign $param2 V2_old N2 T2
+
+    if {$gibbs_ghmc::ntypes == 1 } {
+      set Vtot [expr $V1_old+$V2_old]
+      set lnV_new [expr log($V1_old/$V2_old)+([t_random]-0.5)*$gibbs_ghmc::Vmax]
+      set V1_new [expr $Vtot*exp($lnV_new)/(1+exp($lnV_new))]
+      set V2_new [expr $Vtot-$V1_new]
+      set dVtot 0
+    } else {
+      set lnV1_new [expr log($V1_old)+([t_random]-0.5)*$gibbs_ghmc::Vmax]
+      set V1_new [expr exp($lnV1_new)]
+      set lnV2_new [expr log($V2_old)+([t_random]-0.5)*$gibbs_ghmc::Vmax]
+      set V2_new [expr exp($lnV2_new)]
+      set dVtot [expr $V1_new-$V1_old+$V2_new-$V2_old]
+    }
 
 		# ask the clients for swapping volumes
 		foreach {E1o E1n} [ask_swapprob_vol $channel1 $id1 1 $V1_new] { break }
 		foreach {E2o E2n} [ask_swapprob_vol $channel2 $id2 1 $V2_new] { break }
 
 		# check whether to actually swap by Metropolis
-		set exp [expr -$gibbs_ghmc::beta*($E1n - $E1o + $E2n - $E2o)+($N1+1)*log($V1_new/$V1_old)+($N2+1)*log($V2_new/$V2_old)]
+		set exp [expr -$gibbs_ghmc::beta*($E1n - $E1o + $E2n - $E2o)+($N1+1)*log($V1_new/$V1_old)+($N2+1)*log($V2_new/$V2_old)-$gibbs_ghmc::beta*$gibbs_ghmc::pressure*$dVtot]
 		if {$exp > 0} { set boltzmann 1	} elseif {$exp < -30} { set boltzmann 0	} {
 		    set boltzmann [expr exp($exp)]
 		}
@@ -399,8 +425,18 @@ namespace eval gibbs_ghmc {
 		    if {$gibbs_ghmc::info == "all"} {
 					puts "gibbs_ghmc accept swap volume to: $V1_new $V2_new"
 		    }
-		    set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 0 0 [list $V1_new $N1]]
-				set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 1 1 [list $V2_new $N2]]
+
+        set param1 [list $V1_new $N1]
+        set param2 [list $V2_new $N2]
+
+        if {$gibbs_ghmc::ntypes > 1 } {
+          lappend param1 $T1
+          lappend param2 $T2
+        }
+
+        set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 0 0 $param1]
+        set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 1 1 $param2]
+
 		    incr succ
 		} else {
 		    if {$gibbs_ghmc::info == "all"} {
@@ -416,14 +452,15 @@ namespace eval gibbs_ghmc {
 
 	    if {$gibbs_ghmc::info == "all"} {
 		puts "gibbs_ghmc swapping volume done"
+    puts $gibbs_ghmc::values
 	    }
 	}
 	####
-	proc ask_swapprob_part {channel id param1 param2} {
+	proc ask_swapprob_part {channel id param1 param2 param3} {
 	    if {$channel == "myself"} {
-		set res [gibbs_ghmc::slave::swap_part $id $param1 $param2]
+		set res [gibbs_ghmc::slave::swap_part $id $param1 $param2 $param3]
 	    } {
-	    	puts $channel "swapprob_part $id $param1 $param2"
+	    	puts $channel "swapprob_part $id $param1 $param2 $param3"
 	    	set res [gets $channel]
 	    }
 	    if {[llength $res] != 3} {
@@ -469,30 +506,45 @@ namespace eval gibbs_ghmc {
 		if {$param2 == ""} { break }
 		
 		
-		set V1 [lindex $param1 0]
-		set V2 [lindex $param2 0]
-		set N1_old [lindex $param1 1]
-		set N2_old [lindex $param2 1]
+# 		set V1 [lindex $param1 0]
+# 		set V2 [lindex $param2 0]
+# 		set N1_old [lindex $param1 1]
+# 		set N2_old [lindex $param2 1]
+
+    lassign $param1 V1 N1_old T1
+    lassign $param2 V2 N2_old T2
+
+    set part_type [t_random int $gibbs_ghmc::ntypes]
 
 		if {[t_random]<0.5} {
 			set mv1 1
 			set mv2 -1
-			set Nin $N1_old
-			set Nout $N2_old
+      if {$gibbs_ghmc::ntypes == 1 } {
+        set Nin  $N1_old
+        set Nout $N2_old
+      } else {
+        set Nin  [lindex $T1 $part_type]
+        set Nout [lindex $T2 $part_type]
+      }
 			set Vin $V1
 			set Vout $V2
 		} else {
 			set mv1 -1
 			set mv2 1
-			set Nin $N2_old
-			set Nout $N1_old
+      if {$gibbs_ghmc::ntypes == 1 } {
+        set Nin  $N2_old
+        set Nout $N1_old
+      } else {
+        set Nin  [lindex $T2 $part_type]
+        set Nout [lindex $T1 $part_type]
+      }
 			set Vin $V2
 			set Vout $V1
 		}
 
 		# ask the clients for swapping particles
-		foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 $mv1 0] { break }
-		foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 $mv2 0] { break }
+		foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 $mv1 0 $part_type] { break }
+		foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 $mv2 0 $part_type] { break }
 
 		# check whether to actually swap by Metropolis
 		set exp [expr -$gibbs_ghmc::beta*($E1n - $E1o + $E2n - $E2o)+log($Nout*$Vin/(($Nin+1)*$Vout))]
@@ -500,7 +552,7 @@ namespace eval gibbs_ghmc {
 		    set boltzmann [expr exp($exp)]
 		}
 		if {$gibbs_ghmc::info == "all"} {
-		    puts "gibbs_ghmc tryswap part $N1_old $N2_old -> $mv1 $mv2 : energies $E1o $E1n $E2o $E2n -> $exp -> $boltzmann"
+		    puts "gibbs_ghmc tryswap part of type $part_type: $N1_old $N2_old -> $mv1 $mv2 : energies $E1o $E1n $E2o $E2n -> $exp -> $boltzmann"
 		}
 
 		set pairid "$id1,$id2,1"
@@ -517,26 +569,38 @@ namespace eval gibbs_ghmc {
 		    if {$gibbs_ghmc::info == "all"} {
 					puts "gibbs_ghmc accept swap part to: [expr $N1_old+$mv1] [expr $N2_old+$mv2]"
 		    }
-		    set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 0 0 [list $V1 [expr $N1_old+$mv1]]]
-				set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 1 1 [list $V2 [expr $N2_old+$mv2]]]
+
+		    set param1 [list $V1 [expr $N1_old+$mv1]]
+				set param2 [list $V2 [expr $N2_old+$mv2]]
+
+        if {$gibbs_ghmc::ntypes > 1 } {
+          lappend param1 [lreplace $T1 $part_type $part_type [expr [lindex $T1 $part_type]+$mv1]]
+          lappend param2 [lreplace $T2 $part_type $part_type [expr [lindex $T2 $part_type]+$mv2]]
+        }
+
+        set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 0 0 $param1]
+        set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 1 1 $param2]
+
 				# ask the clients to really deleting chosen particle
-				if {$mv1 == -1} {foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 0 $part_id1] { break }}
-				if {$mv2 == -1} {foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 0 $part_id2] { break }}
+				if {$mv1 == -1} {foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 0 $part_id1 $part_type] { break }}
+				if {$mv2 == -1} {foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 0 $part_id2 $part_type] { break }}
 		    incr succ
 		} else {
 		    if {$gibbs_ghmc::info == "all"} {
 					puts "gibbs_ghmc undo swap part to: [expr $N1_old+$mv1] [expr $N2_old+$mv2]"
 		    }
 		    # ask the clients to deleting newly created particle
-				if {$mv1 == 1} {foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 0 $part_id1] { break }}
-				if {$mv2 == 1} {foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 0 $part_id2] { break }}
+				if {$mv1 == 1} {foreach {E1o E1n part_id1} [ask_swapprob_part $channel1 $id1 0 $part_id1 $part_type] { break }}
+				if {$mv2 == 1} {foreach {E2o E2n part_id2} [ask_swapprob_part $channel2 $id2 0 $part_id2 $part_type] { break }}
 		}
 		
 		set acceptance($pairid) "$tries $succ"
-	    }
+	  
+    }
 
 	    if {$gibbs_ghmc::info == "all"} {
 		puts "gibbs_ghmc swapping part done"
+      puts $gibbs_ghmc::values
 	    }
 	}
 	####
@@ -598,6 +662,125 @@ namespace eval gibbs_ghmc {
 				puts "gibbs_ghmc moving part done"
 	    }
 	}
+	####
+	proc ask_exchprob_part {channel id param1 param2 param3} {
+	    if {$channel == "myself"} {
+		set res [gibbs_ghmc::slave::exch_part $id $param1 $param2 $param3]
+	    } {
+	    	puts $channel "exchprob_part $id $param1 $param2 $param3"
+	    	set res [gets $channel]
+	    }
+	    if {[llength $res] != 4} {
+		error "exch part format wrong, \"$res\" is not a list of four elements."
+	    }
+	    return $res
+	}
+	####
+	proc exch_clients_part {odd} {
+	    variable clients
+	    variable acceptance
+
+	    if {$gibbs_ghmc::info == "all"} {
+		puts "gibbs_ghmc exchanging part start"
+	    }
+	    # odd-even rule. We either try to exchange 1-2
+	    # or we simply keep 1 and start with 2-3
+	    if {$odd} {
+		# keep first client
+		set v [lrange $gibbs_ghmc::values 1 end]
+		set c [lrange $clients 2 end]
+	    } {
+		# do not keep it
+		set v $gibbs_ghmc::values
+		set c $clients
+	    }
+
+ 	    foreach {param1 param2} $v {channel1 id1 channel2 id2} $c {
+		# single parameter left over, cannot swap
+		if {$param2 == ""} { break }
+
+      lassign $param1 V1 N1 T1
+      lassign $param2 V2 N2 T2
+
+                set pt1 [t_random int $gibbs_ghmc::ntypes]
+                if {$gibbs_ghmc::ntypes == 2} {
+                  set pt2 [expr abs($pt1 -1)]
+                } else {
+                  #TODO : put here code to choose particle type to replace
+                } 
+		if {[t_random]<0.5} {
+                        set ptype1 $pt1
+                        set ptype2 $pt2
+		} else {
+                        set ptype1 $pt2
+                        set ptype2 $pt1
+		}
+                set N11 [lindex $T1 $ptype1]
+                set N12 [lindex $T1 $ptype2]
+                set N21 [lindex $T2 $ptype1]
+                set N22 [lindex $T2 $ptype2]
+    
+#     puts "$param1, $param2"
+#     puts "$T1, $T2" 
+#     puts "part type status : sys1: $N11, $N12 -- sys2: $N21, $N22"
+
+		# ask the clients for swapping particles
+		foreach {E1o E1n part_id1} [ask_exchprob_part $channel1 $id1 -1 0 $ptype1] { break }
+		foreach {E2o E2n part_id2} [ask_exchprob_part $channel2 $id2 -1 0 $ptype2] { break }
+
+		# check whether to actually swap by Metropolis
+		set exp [expr -$gibbs_ghmc::beta*($E1n - $E1o + $E2n - $E2o)+log(double($N11*$N22)/double((($N21+1)*($N12+1))))]
+		if {$exp > 0} { set boltzmann 1	} elseif {$exp < -30} { set boltzmann 0	} {
+		    set boltzmann [expr exp($exp)]
+		}
+		if {$gibbs_ghmc::info == "all"} {
+		    puts "gibbs_ghmc try exch part type $ptype1 to $ptype2 -> : energies $E1o $E1n $E2o $E2n -> $exp -> $boltzmann"
+		}
+
+		set pairid "$id1,$id2,3"
+		if {[array names acceptance $pairid] == ""} {
+		    set tries 1
+		    set succ 0
+		} {
+		    foreach {tries succ} $acceptance($pairid) { break }
+		    incr tries
+		}
+
+		set myrand [t_random]
+		if {[expr $myrand < $boltzmann]} {
+		    if {$gibbs_ghmc::info == "all"} {
+					puts "gibbs_ghmc accept exch part to: type $ptype1 -> [expr $N11-1] [expr $N21+1] , type $ptype2 -> [expr $N12+1] [expr $N22-1]"
+		    }
+		                set T1 [lreplace $T1 $ptype1 $ptype1 [expr $N11-1]] 
+		                set T1 [lreplace $T1 $ptype2 $ptype2 [expr $N12+1]] 
+		                set T2 [lreplace $T2 $ptype2 $ptype2 [expr $N22-1]] 
+		                set T2 [lreplace $T2 $ptype1 $ptype1 [expr $N21+1]] 
+
+		    set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 0 0 [list $V1 $N1 $T1]]
+				set gibbs_ghmc::values [lreplace $gibbs_ghmc::values 1 1 [list $V2 $N2 $T2]]
+
+        # ask the clients to update lists of particle types
+				foreach {E1o E1n part_id1} [ask_exchprob_part $channel1 $id1 1 $part_id1 $ptype1] { break }
+				foreach {E2o E2n part_id2} [ask_exchprob_part $channel2 $id2 1 $part_id2 $ptype2] { break }
+		    incr succ
+		} else {
+		    if {$gibbs_ghmc::info == "all"} {
+					puts "gibbs_ghmc undo exch part"
+		    }
+        # ask the clients to restore old particle types
+				foreach {E1o E1n part_id1} [ask_exchprob_part $channel1 $id1 0 $part_id1 $ptype1] { break }
+				foreach {E2o E2n part_id2} [ask_exchprob_part $channel2 $id2 0 $part_id2 $ptype2] { break }
+		}
+		
+		set acceptance($pairid) "$tries $succ"
+
+	    }
+
+	    if {$gibbs_ghmc::info == "all"} {
+		puts "gibbs_ghmc exch part done"
+	    }
+    
+    }
 	####
 	proc release_clients {} {
 	    variable slaves
@@ -672,6 +855,7 @@ namespace eval gibbs_ghmc {
 										puts "gibbs_ghmc: particle acceptance rate $id1 $id2 [get_acceptance_rate $id1 $id2 1]"
 										puts "gibbs_ghmc: move acceptance rate $channel1 $id1 [get_acceptance_rate $channel1 $id1 2]"
 										puts "gibbs_ghmc: move acceptance rate $channel2 $id2 [get_acceptance_rate $channel2 $id2 2]"
+                    puts "gibbs_ghmc: exchange acceptance rate $id1 $id2 [get_acceptance_rate $id1 $id2 3]"
 										if {$gibbs_ghmc::adjust_vol} {set gibbs_ghmc::Vmax [adjust_acceptance_rates $id1 $id2 0 $gibbs_ghmc::Vmax]}
 										if {$gibbs_ghmc::adjust_dt} {
 											set gibbs_ghmc::md_dt($channel1,$id1) [expr min([adjust_acceptance_rates $channel1 $id1 2 $gibbs_ghmc::md_dt($channel1,$id1)],$gibbs_ghmc::dt_max)]
@@ -686,13 +870,15 @@ namespace eval gibbs_ghmc {
 				sample_clients
 				
 				for {set k 0} {$k<$gibbs_ghmc::mc_cycle} {incr k} { 
-					set myrand [expr [t_random]*($gibbs_ghmc::nmove+$gibbs_ghmc::nvol+$gibbs_ghmc::npart)]
+					set myrand [expr [t_random]*($gibbs_ghmc::nmove+$gibbs_ghmc::nvol+$gibbs_ghmc::npart+$gibbs_ghmc::nexch)]
 					if {$myrand<$gibbs_ghmc::nmove} {
 						move_clients_part [expr ($gibbs_ghmc::rounds) == 0]
 					} elseif {$myrand<[expr $gibbs_ghmc::nmove+$gibbs_ghmc::nvol]} {
 						swap_clients_vol [expr ($gibbs_ghmc::rounds) == 0]
-					} else {
+					} elseif {$myrand<[expr $gibbs_ghmc::nmove+$gibbs_ghmc::nvol+$gibbs_ghmc::npart]} {
 						swap_clients_part [expr ($gibbs_ghmc::rounds) == 0]
+					} else {
+						exch_clients_part [expr ($gibbs_ghmc::rounds) == 0]
 					}
 				}
 
@@ -717,9 +903,9 @@ proc set_shareddata {data} {
 proc main {args} {
 	variable rounds; variable master; variable port
 	variable values; variable load;	variable info
-	variable init; variable swap_vol; variable swap_part; variable move_part; variable sample
-	variable nvol; variable npart; variable nmove;
-	variable beta; variable Vmax; variable md_dt; variable dt_max
+	variable init; variable swap_vol; variable swap_part;  variable exch_part; variable move_part; variable sample
+	variable nvol; variable npart; variable nmove; variable nexch; variable ntypes;
+	variable beta; variable Vmax; variable md_dt; variable dt_max; variable pressure
 	variable mc_cycle; variable adjust_vol; variable adjust_dt; variable sample_rounds
 	
 	set init ""
@@ -740,11 +926,15 @@ proc main {args} {
 		"-swap_vol"       { set swap_vol [lindex $args 1]; set skip 2 }
 		"-swap_part"      { set swap_part [lindex $args 1]; set skip 2 }
 		"-move_part"      { set move_part [lindex $args 1]; set skip 2 }
+		"-exch_part"      { set exch_part [lindex $args 1]; set skip 2 }
 		"-sample"         { set sample [lindex $args 1]; set skip 2 }
 		"-nvol"           { set nvol [lindex $args 1]; set skip 2 }
 		"-npart"          { set npart [lindex $args 1]; set skip 2 }
 		"-nmove"          { set nmove [lindex $args 1]; set skip 2 }
+		"-nexch"          { set nexch [lindex $args 1]; set skip 2 }
+		"-ntypes"         { set ntypes [lindex $args 1]; set skip 2 }
 		"-temp"           { set beta [expr 1.0/[lindex $args 1]]; set skip 2 }
+    "-pres"           { set pressure [lindex $args 1]; set skip 2 }
 		"-vmax"           { set Vmax [lindex $args 1]; set skip 2 }
 		"-time_step"      { if {[array names md_dt] != ""} {unset md_dt}; set md_dt [lindex $args 1]; set skip 2 }
 		"-max_time_step"  { set dt_max [lindex $args 1]; set skip 2 }
@@ -776,5 +966,7 @@ proc main {args} {
   if {$sample_rounds == 0 && $master == ""} { set sample_rounds [expr $rounds/2]}
 
 	if {$master == ""} { master::main } { slave::main }
-    }
+  
+  }
+
 }
