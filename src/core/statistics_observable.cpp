@@ -1085,6 +1085,72 @@ int observable_calc_structure_factor(observable* self) {
   return 0;
 }
 
+int observable_calc_structure_factor_2d(observable* self) {
+  double* A = self->last_value;
+  // FIXME Currently scattering length is hardcoded as 1.0a
+  // FIXME Currently slab is hardcoded in z direction
+  int l;
+  int order, order2, n;
+  double twoPI_L, C_sum, S_sum, qr; 
+  //  direction of slab and its coordinates 
+  int dir;
+  double dmin, dmax;
+  //  DoubleList *scattering_length;
+  observable_sf_params * params;
+  params = (observable_sf_params*) self->container;
+  //  scattering_length = params->scattering_length;
+  const double scattering_length=1.0;
+  order = params->order;
+  order2=order*order;
+  twoPI_L = 2*PI/box_l[0];
+  dir  = params->dir;
+  dmin = params->dmin;
+  dmax = params->dmax;
+
+  if (!sortPartCfg()) {
+    ostringstream msg;
+    msg <<"could not sort partCfg";
+    runtimeError(msg);
+    return -1;
+  }
+
+  
+  l=0;
+  float partCache[n_part*3];
+  for(int p=0; p<n_part; p++) {
+    for (int i=0;i<3;i++){
+      partCache[3*p+i]=partCfg[p].r.p[i];
+    }
+  }
+  //printf("self->n: %d, dim_sf: %d\n",n_A, params.dim_sf); fflush(stdout);
+  for(int i=-order; i<=order; i++) {
+    for(int j=-order; j<=order; j++) {
+      n = i*i + j*j;
+      if ((n<=order2) && (n>=1)) {
+        C_sum = S_sum = 0.0;
+        //printf("l: %d, n: %d %d\n",l,i,j); fflush(stdout);
+        for(int p=0; p<n_part; p++) {
+          if ((partCache[3*p+2]>=dmin) && (partCache[3*p+2]<=dmax)) {
+            //qr = twoPI_L * ( i*partCfg[p].r.p[0] + j*partCfg[p].r.p[1]);
+            qr = twoPI_L * ( i*partCache[3*p+0] + j*partCache[3*p+1]);
+            C_sum+= scattering_length * cos(qr);
+            S_sum-= scattering_length * sin(qr);
+          }
+        }
+        A[l]   =C_sum;
+        A[l+1] =S_sum;
+        l=l+2;
+      }
+    }
+  }
+  l = 0;
+  for(int k=0;k<self->n;k++) {
+    //devide by the sqrt(number_of_particle) due to complex product and no k-vector averaging so far
+    A[k] /= sqrt(n_part);
+  }
+  //printf("finished calculating sf\n"); fflush(stdout);
+  return 0;
+}
 
 int observable_calc_structure_factor_fast(observable* self) {
   //printf("calculating\n");

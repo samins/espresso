@@ -789,6 +789,61 @@ int tclcommand_observable_print_structure_factor_formatted(Tcl_Interp* interp, i
   return TCL_OK;
 }
 
+int tclcommand_observable_structure_factor_2d(Tcl_Interp* interp, int argc, char** argv, int* change, observable* obs) {
+  //Tcl_AppendResult(interp, "Structure Factor not available yet!!", (char *)NULL);
+  //return TCL_ERROR;
+  int order;
+  if (argc > 1 && ARG1_IS_I(order)) {
+    obs->calculate=&observable_calc_structure_factor_2d;
+    //order_p=(int * )malloc(sizeof(int));
+    observable_sf_params* params =(observable_sf_params*) malloc(sizeof(observable_sf_params));
+    params->order=order;
+   obs->container=(void*) params;
+   int order2,i,j,l,n ; 
+   order2=order*order;
+   l=0;
+   // lets counter the number of entries for the DSF
+   for(i=-order; i<=order; i++) {
+     for(j=-order; j<=order; j++) {
+       n = i*i + j*j;
+       if (( n<=order2 ) && (n >= 1)) {
+         l=l+2;
+       }
+     }
+   }
+   obs->n=l;
+   obs->last_value=(double*)malloc(obs->n*sizeof(double));
+   *change=2;
+   return TCL_OK;
+ } else { 
+   sf_print_usage(interp);
+   return TCL_ERROR; 
+ }
+}
+
+int tclcommand_observable_print_structure_factor_2d_formatted(Tcl_Interp* interp, int argc, char** argv, int* change, observable* obs, double* values, int groupsize, int shifted) {
+  observable_sf_params* params= (observable_sf_params*) obs->container;
+  int order=params->order;
+  int order2=order*order;
+  char buffer[4 * TCL_DOUBLE_SPACE + 7];
+  double qfak = 2.0 * PI / box_l[0];
+  double* data = obs->last_value;
+  int l=0;
+  for(int i=-order; i<=order; i++) {
+    for(int j=-order; j<=order; j++) {
+      int n = i*i + j*j;
+      if (( n<=order2 ) && ( n>0 )) {
+	sprintf(buffer, "{%f %f %f %f %f} ", qfak * i, qfak*j, data[l],data[l+1]);
+	//sprintf(buffer, "%f %f %f %f %f\n", qfak * i, qfak*j, qfak*k, data[l],data[l+1]);
+	Tcl_AppendResult(interp, buffer, (char *) NULL);
+	l=l+2;
+      }
+    }
+  }
+  return TCL_OK;
+}
+
+
 int tclcommand_observable_structure_factor_fast(Tcl_Interp* interp, int argc, char** argv, int* change, observable* obs) {
   int order;
   if (argc > 1 && ARG1_IS_I(order)) {
@@ -1337,6 +1392,7 @@ int tclcommand_observable(ClientData data, Tcl_Interp *interp, int argc, char **
     REGISTER_OBSERVABLE(dipole_moment, tclcommand_observable_dipole_moment,id);
     REGISTER_OBSERVABLE(structure_factor, tclcommand_observable_structure_factor,id);
     REGISTER_OBSERVABLE(structure_factor_fast, tclcommand_observable_structure_factor_fast,id);
+    REGISTER_OBSERVABLE(structure_factor_fast, tclcommand_observable_structure_factor_2d,id);
     REGISTER_OBSERVABLE(interacts_with, tclcommand_observable_interacts_with,id);
   //  REGISTER_OBSERVABLE(obs_nothing, tclcommand_observable_obs_nothing,id);
   //  REGISTER_OBSERVABLE(flux_profile, tclcommand_observable_flux_profile,id);
