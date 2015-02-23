@@ -208,6 +208,19 @@ enum ConstraintApplied{
 };
 /*@}*/
 
+/** \name Type codes for external magnetic field constraint
+    Enumeration of implemented external magnetic field constraint types.
+*/
+/************************************************************/
+/*@{*/
+
+/** uniform external magnetic field */
+#define EXT_MAGN_FIELD_UNIFORM 0
+/** nonuniform external magnetic field - 1/z type */
+#define EXT_MAGN_FIELD_NONUNIFORM_ZI 1
+
+/*@}*/
+
 /* Data Types */
 /************************************************************/
 
@@ -1031,6 +1044,8 @@ typedef struct {
 typedef struct{
   /** vector (direction and magnitude) of the external magnetic field */
   double ext_magn_field[3];
+	int ext_magn_field_type;
+	double coef_nuf_zi[3][2];
 } Constraint_ext_magn_field;
 //end ER
 
