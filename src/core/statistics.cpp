@@ -854,6 +854,50 @@ void calc_structurefactor(int type, int order, double **_ff) {
   }
 }
 
+void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **_ff) {
+  int i, j, k, n, qi, p, order2;
+  double qr, twoPI_L, C_sum, S_sum, *ff=NULL; 
+
+  order2 = order*order;
+  *_ff = ff = (double*)realloc(ff,2*order2*sizeof(double));
+  
+
+  twoPI_L = 2*PI/box_l[(dir+1) % 3];
+  
+  if ((type < 0) || (type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",type); fflush(NULL); errexit(); }
+  else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
+  else {
+    for(qi=0; qi<2*order2; qi++) {
+      ff[qi] = 0.0;
+    }
+    for(i=0; i<=order; i++) {
+      for(j=-order; j<=order; j++) {
+	n = i*i + j*j;
+	if ((n<=order2) && (n>=1)) {
+	  C_sum = S_sum = 0.0;
+	  for(p=0; p<n_part; p++) {
+	    if (partCfg[p].p.type == type) {
+	      if (partCfg[p].r.p[dir]>=dmin && partCfg[p].r.p[dir]<=dmax) {
+	        qr = twoPI_L * ( i*partCfg[p].r.p[(dir+1) % 3] + j*partCfg[p].r.p[(dir+2) % 3] );
+	        C_sum+= cos(qr);
+	        S_sum+= sin(qr);
+              }
+	    }
+	  }
+	  ff[2*n-2]+= C_sum*C_sum + S_sum*S_sum;
+	  ff[2*n-1]++;
+	}
+      }
+    }
+    n = 0;
+    for(p=0; p<n_part; p++) {
+      if (partCfg[p].p.type == type && partCfg[p].r.p[dir]>=dmin && partCfg[p].r.p[dir]<=dmax) n++;
+    }
+    for(qi=0; qi<order2; qi++) 
+      if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+  }
+}
+
 //calculates average density profile in dir direction over last n_conf configurations
 void density_profile_av(int n_conf, int n_bin, double density, int dir, double *rho_ave, int type)
 {

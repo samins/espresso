@@ -311,6 +311,23 @@ double calc_vanhove(int ptype, double rmin, double rmax, int rbins, int tmax, do
 */
 
 void calc_structurefactor(int type, int order, double **sf);
+
+/** Calculates the 2D structure factor in a slab.
+
+    Calculates the 2D structure factor in a slab of particles of a
+    given type. Similar to the spherical structure factor above
+    but calculated for 2D wave vectors in a slab.
+    
+    @param type   the type of the particles to be analyzed
+    @param order  the maximum wave vector length in 2PI/L
+    @param dir    direction normal to slab 
+    @dmin         slab bottom coordinate in @param dir
+    @dmax         slab top coordinate in @param dir
+    @param sf     pointer to hold the base of the array containing the result (size: 2*order^2).
+*/
+
+void calc_structurefactor(int type, int order, double **sf);
+void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **sf);
 	  
 
 /** Calculates the density profile in dir direction */

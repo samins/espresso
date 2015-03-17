@@ -1674,6 +1674,45 @@ int tclcommand_analyze_parse_structurefactor(Tcl_Interp *interp, int argc, char 
     return (TCL_OK);
 }
 
+int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, char **argv) {
+    /* 'analyze { stucturefactor2d } <type> <order> <dir> <dmin> <dmax>' */
+    /***********************************************************************************************************/
+    char buffer[2 * TCL_DOUBLE_SPACE + 4];
+    int i, type, order, dir;
+    double qfak, dmin, dmax, *sf;
+    if (argc < 5) {
+        Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> <dmin> <dmax>",
+                (char *) NULL);
+        return (TCL_ERROR);
+    } else {
+        if (!ARG0_IS_I(type))
+            return (TCL_ERROR);
+        if (!ARG1_IS_I(order))
+            return (TCL_ERROR);
+        if (!ARG1_IS_I(dir))
+            return (TCL_ERROR);
+        if (!ARG1_IS_D(dmin))
+            return (TCL_ERROR);
+        if (!ARG1_IS_D(dmax))
+            return (TCL_ERROR);
+        argc -= 5;
+        argv += 5;
+    }
+    updatePartCfg(WITHOUT_BONDS);
+    calc_structurefactor_2d(type, order, dir, dmin, dmax, &sf);
+
+    qfak = 2.0 * PI / box_l[(dir+1) % 3];
+    for (i = 0; i < order * order; i++) {
+        if (sf[2 * i + 1] > 0) {
+            sprintf(buffer, "{%f %f} ", qfak * sqrt(i + 1), sf[2 * i]);
+            Tcl_AppendResult(interp, buffer, (char *) NULL);
+        }
+    }
+    free(sf);
+    return (TCL_OK);
+}
+
+
 static int tclcommand_analyze_parse_density_profile_av(Tcl_Interp *interp, int argc, char **argv) {
     /* 'analyze <density_profile> [<n_bin> <density> <dir> <number of conf> <type>]' */
     int n_conf;
@@ -2633,6 +2672,7 @@ int tclcommand_analyze(ClientData data, Tcl_Interp *interp, int argc, char **arg
     REGISTER_ANALYSIS("cwvac", tclcommand_analyze_parse_cwvac);
 #endif
     REGISTER_ANALYSIS("structurefactor", tclcommand_analyze_parse_structurefactor);
+    REGISTER_ANALYSIS("structurefactor2d", tclcommand_analyze_parse_structurefactor_2d);
     REGISTER_ANALYSIS("<density_profile>", tclcommand_analyze_parse_density_profile_av);
     REGISTER_ANALYSIS("<diffusion_profile>", tclcommand_analyze_parse_diffusion_profile);
     REGISTER_ANALYSIS("vanhove", tclcommand_analyze_parse_vanhove);
