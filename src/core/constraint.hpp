@@ -76,6 +76,10 @@ void calculate_slitpore_dist(Particle *p1, double ppos[3],
 			 Particle *c_p, Constraint_slitpore *c, 
 			 double *dist, double *vec);
 
+void calculate_openslit_dist(Particle *p1, double ppos[3], 
+			 Particle *c_p, Constraint_openslit *c, 
+			 double *dist, double *vec);
+
 void calculate_plane_dist(Particle *p1, double ppos[3], 
 			  Particle *c_p, Constraint_plane *c, 
 			  double *dist, double *vec);

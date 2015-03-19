@@ -201,6 +201,8 @@ enum ConstraintApplied{
     CONSTRAINT_STOMATOCYTE,
 /** slitpore constraint applied */
     CONSTRAINT_SLITPORE,
+/** open_openslit constraint applied */
+    CONSTRAINT_OPENSLIT,
 /** Constraint for a hollow cone boundary */
     CONSTRAINT_HOLLOW_CONE,
 /** Constraint for spherocylinder boundary */
@@ -924,6 +926,20 @@ typedef struct {
   int reflecting;
 } Constraint_slitpore;
 
+/** Parameters for a OPENSLIT constraint. */
+typedef struct {
+  /** pore dimentions. **/
+  double pore_width;
+  double pore_length;
+  /** reservoir dimentions. */
+  double channel_length;
+  double channel_width;
+  /** smoothing radii at pore and resrvoir edges. */
+  double inner_smoothing_radius;
+  double outer_smoothing_radius;
+  int reflecting;
+} Constraint_openslit;
+
 /** Parameters for a ROD constraint. */
 typedef struct {
   /** center of the cylinder in the x-y plane. */
@@ -1061,6 +1077,7 @@ typedef struct {
     Constraint_maze maze;
     Constraint_pore pore;
     Constraint_slitpore slitpore;
+    Constraint_openslit openslit;
     Constraint_stomatocyte stomatocyte;
     Constraint_hollow_cone hollow_cone;
     //ER
