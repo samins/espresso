@@ -242,6 +242,26 @@ static int tclprint_to_result_Constraint(Tcl_Interp *interp, int i)
     Tcl_AppendResult(interp, buffer, (char *) NULL);
     break; 
 //end ER
+  case CONSTRAINT_LOC_EXT_FIELD:
+    Tcl_PrintDouble(interp, con->c.lefield.loc_ext_field[0], buffer);
+    Tcl_AppendResult(interp, "loc_ext_field ", buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.loc_ext_field[1], buffer);
+    Tcl_AppendResult(interp, buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.loc_ext_field[2], buffer);
+    Tcl_AppendResult(interp, buffer, (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmin[0], buffer);
+    Tcl_AppendResult(interp, " pos_min ", buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmin[1], buffer);
+    Tcl_AppendResult(interp, buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmin[2], buffer);
+    Tcl_AppendResult(interp, buffer, (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmax[0], buffer);
+    Tcl_AppendResult(interp, " pos_max ", buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmax[1], buffer);
+    Tcl_AppendResult(interp, buffer, " ", (char *) NULL);
+    Tcl_PrintDouble(interp, con->c.lefield.pmax[2], buffer);
+    Tcl_AppendResult(interp, buffer, (char *) NULL);
+    break; 
   case CONSTRAINT_PLANE:
     Tcl_PrintDouble(interp, con->c.plane.pos[0], buffer);
     Tcl_AppendResult(interp, "plane cell ", buffer, " ", (char *) NULL);
@@ -1066,48 +1086,38 @@ static int tclcommand_constraint_parse_openslit(Constraint *con, Tcl_Interp *int
 
   con->type = CONSTRAINT_OPENSLIT;
   /* invalid entries to start of */
-  con->c.openslit.channel_length = 0; 
-  con->c.openslit.channel_width = 0;
-  con->c.openslit.pore_width = 0;
-  con->c.openslit.pore_length = 0;
+  con->c.openslit.bulk_width = 0;
+  con->c.openslit.slit_width = 0;
+  con->c.openslit.slit_length = 0;
   con->c.openslit.inner_smoothing_radius = 0;
   con->c.openslit.outer_smoothing_radius = 0;
   con->c.openslit.reflecting = 0;
   con->part_rep.p.type = -1;
   while (argc > 0) {
-    if(!strncmp(argv[0], "channel_length", strlen(argv[0]))) {
+    if(!strncmp(argv[0], "slit_width", strlen(argv[0]))) {
       if (argc < 1) {
-	Tcl_AppendResult(interp, "constraint openslit channel_length <channel_length> expected", (char *) NULL);
+	Tcl_AppendResult(interp, "constraint openslit slit_width <slit_width> expected", (char *) NULL);
 	return (TCL_ERROR);
       }  
-      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.channel_length)) == TCL_ERROR)
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.slit_width)) == TCL_ERROR)
 	return (TCL_ERROR);
       argc -= 2; argv += 2;
     }
-    else if(!strncmp(argv[0], "pore_width", strlen(argv[0]))) {
+    else if(!strncmp(argv[0], "slit_length", strlen(argv[0]))) {
       if (argc < 1) {
-	Tcl_AppendResult(interp, "constraint openslit pore_width <pore_width> expected", (char *) NULL);
+	Tcl_AppendResult(interp, "constraint openslit slit_width <slit_length> expected", (char *) NULL);
 	return (TCL_ERROR);
       }  
-      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.pore_width)) == TCL_ERROR)
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.slit_length)) == TCL_ERROR)
 	return (TCL_ERROR);
       argc -= 2; argv += 2;
     }
-    else if(!strncmp(argv[0], "pore_length", strlen(argv[0]))) {
+    else if(!strncmp(argv[0], "bulk_width", strlen(argv[0]))) {
       if (argc < 1) {
-	Tcl_AppendResult(interp, "constraint openslit pore_width <pore_length> expected", (char *) NULL);
+	Tcl_AppendResult(interp, "constraint openslit bulk_width <bulk_width> expected", (char *) NULL);
 	return (TCL_ERROR);
       }  
-      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.pore_length)) == TCL_ERROR)
-	return (TCL_ERROR);
-      argc -= 2; argv += 2;
-    }
-    else if(!strncmp(argv[0], "channel_width", strlen(argv[0]))) {
-      if (argc < 1) {
-	Tcl_AppendResult(interp, "constraint openslit channel_width <channel_width> expected", (char *) NULL);
-	return (TCL_ERROR);
-      }  
-      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.channel_width)) == TCL_ERROR)
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.openslit.bulk_width)) == TCL_ERROR)
 	return (TCL_ERROR);
       argc -= 2; argv += 2;
     }
@@ -1152,19 +1162,15 @@ static int tclcommand_constraint_parse_openslit(Constraint *con, Tcl_Interp *int
   }
 
   int error = 0;
-  if (con->c.openslit.channel_length <= 0.)  {
-    Tcl_AppendResult(interp, "Error in contraint openslit: Channel length must be > 0", (char *) NULL);
-    error=1;
-  }
-  if (con->c.openslit.channel_width <= 0.)  {
+  if (con->c.openslit.bulk_width <= 0.)  {
     Tcl_AppendResult(interp, "Error in contraint openslit: Channel width must be > 0", (char *) NULL);
     error=1;
   }
-  if ( con->c.openslit.pore_width <= 0. ) {
+  if ( con->c.openslit.slit_width <= 0. ) {
     Tcl_AppendResult(interp, "Error in contraint openslit: Pore width must be > 0", (char *) NULL);
     error=1;
   }
-  if (  con->c.openslit.pore_length < 0. ) {
+  if (  con->c.openslit.slit_length < 0. ) {
     Tcl_AppendResult(interp, "Error in contraint openslit: Pore length must be > 0", (char *) NULL);
     error=1;
   }
@@ -1741,6 +1747,68 @@ int tclcommand_constraint_parse_ext_magn_field(Constraint *con, Tcl_Interp *inte
 }
 //end ER
 
+int tclcommand_constraint_parse_loc_ext_field(Constraint *con, Tcl_Interp *interp,
+		      int argc, char **argv)
+{
+  int i;
+  con->type = CONSTRAINT_LOC_EXT_FIELD;
+  con->part_rep.p.type=-1;
+
+  for(i=0; i<3; i++)
+     con->c.lefield.loc_ext_field[i] = 0.;
+  
+  while (argc > 0) {
+    if(!strncmp(argv[0], "field", strlen(argv[0]))) {
+      if(argc < 4) {
+        Tcl_AppendResult(interp, "usage: constraint loc_ext_field field <x> <y> <z>", (char *) NULL);
+	return (TCL_ERROR);
+      }
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.lefield.loc_ext_field[0])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[2], &(con->c.lefield.loc_ext_field[1])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[3], &(con->c.lefield.loc_ext_field[2])) == TCL_ERROR)
+	return (TCL_ERROR);
+      argc -= 4; argv += 4;
+    }
+    else if(!strncmp(argv[0], "min_pos", strlen(argv[0]))) {
+      if(argc < 4) {
+        Tcl_AppendResult(interp, "usage: constraint loc_ext_field min_pos <min_x> <min_y> <min_z>", (char *) NULL);
+	return (TCL_ERROR);
+      }
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.lefield.pmin[0])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[2], &(con->c.lefield.pmin[1])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[3], &(con->c.lefield.pmin[2])) == TCL_ERROR)
+	return (TCL_ERROR);
+      argc -= 4; argv += 4;
+    }
+    else if(!strncmp(argv[0], "max_pos", strlen(argv[0]))) {
+      if(argc < 4) {
+        Tcl_AppendResult(interp, "usage: constraint loc_ext_field max_pos <max_x> <max_y> <max_z>", (char *) NULL);
+	return (TCL_ERROR);
+      }
+      if (Tcl_GetDouble(interp, argv[1], &(con->c.lefield.pmax[0])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[2], &(con->c.lefield.pmax[1])) == TCL_ERROR ||
+	  Tcl_GetDouble(interp, argv[3], &(con->c.lefield.pmax[2])) == TCL_ERROR)
+	return (TCL_ERROR);
+      argc -= 4; argv += 4;
+    }
+    else
+      break;
+  }
+
+  int error = 0;
+  for(i=0; i<3; i++){
+    if (con->c.lefield.pmin[i] < 0. || con->c.lefield.pmax[i] < 0.)  {
+      Tcl_AppendResult(interp, "Error in contraint loc_ext_field: local field positions must be > 0.", (char *) NULL);
+      error=1;
+    }
+  }
+
+  if (error)
+    return (TCL_ERROR);
+
+  return (TCL_OK);
+}
+
 static int tclcommand_constraint_parse_plane_cell(Constraint *con, Tcl_Interp *interp,
                       int argc, char **argv)
 {
@@ -2044,6 +2112,10 @@ int tclcommand_constraint(ClientData _data, Tcl_Interp *interp,
     mpi_bcast_constraint(-1);
   }
   //end ER
+  else if(!strncmp(argv[1], "loc_ext_field", strlen(argv[1]))) {
+    status = tclcommand_constraint_parse_loc_ext_field(generate_constraint(),interp, argc - 2, argv + 2);
+    mpi_bcast_constraint(-1);
+  }
   else if(!strncmp(argv[1], "force", strlen(argv[1]))) {
     if(argc < 3) {
       Tcl_AppendResult(interp, "which particles force?",(char *) NULL);

@@ -193,6 +193,8 @@ enum ConstraintApplied{
 /** External magnetic field constraint applied */
     CONSTRAINT_EXT_MAGN_FIELD,
 //end ER
+/** Local external magnetic field constraint applied */
+    CONSTRAINT_LOC_EXT_FIELD,
 /** Constraint for tunable-lsip boundary conditions */
     CONSTRAINT_PLANE,
 /** Constraint for tunable-lsip boundary conditions */
@@ -929,11 +931,10 @@ typedef struct {
 /** Parameters for a OPENSLIT constraint. */
 typedef struct {
   /** pore dimentions. **/
-  double pore_width;
-  double pore_length;
+  double slit_width;
+  double slit_length;
   /** reservoir dimentions. */
-  double channel_length;
-  double channel_width;
+  double bulk_width;
   /** smoothing radii at pore and resrvoir edges. */
   double inner_smoothing_radius;
   double outer_smoothing_radius;
@@ -1050,6 +1051,15 @@ typedef struct{
 } Constraint_ext_magn_field;
 //end ER
 
+/** Parameters for a LOCAL EXTERNAL FIELD constraint */
+typedef struct{
+  /** vector (direction and magnitude) of the external magnetic field */
+  double loc_ext_field[3];
+  /** minimum and maximum positions in each dimention between which the field is applied */
+  double pmin[3];
+  double pmax[3];
+} Constraint_loc_ext_field;
+
 /** Parameters for a plane constraint which is needed for tunable-slip boundary conditions. */
 typedef struct {
   /** Position of the plain. Negative values mean non-existing in that direction. */
@@ -1083,6 +1093,7 @@ typedef struct {
     //ER
     Constraint_ext_magn_field emfield;
     //end ER
+    Constraint_loc_ext_field lefield;
     Constraint_plane plane;
   } c;
 

@@ -2254,6 +2254,37 @@ double ext_magn_field_energy(Particle *p1, Constraint_ext_magn_field *c)
 }
 //end ER
 
+void add_loc_ext_field_force(Particle *p1, double ppos[3], Constraint_loc_ext_field *c)
+{
+#ifdef ROTATION
+#ifdef DIPLES
+  int j;
+  for (j = 0; j < 3; j++) {
+    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j])
+      return 0;
+  }
+
+   p1->f.torque[0] += p1->r.dip[1]*c->loc_ext_field[2]-p1->r.dip[2]*c->loc_ext_field[1];
+   p1->f.torque[1] += p1->r.dip[2]*c->loc_ext_field[0]-p1->r.dip[0]*c->loc_ext_field[2];
+   p1->f.torque[2] += p1->r.dip[0]*c->loc_ext_field[1]-p1->r.dip[1]*c->loc_ext_field[0];
+#endif
+#endif
+}
+
+double loc_ext_field_energy(Particle *p1, double ppos[3], Constraint_loc_ext_field *c)
+{
+#ifdef DIPOLES
+  int j;
+  for (j = 0; j < 3; j++) {
+    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j])
+      return 0;
+  }
+
+     return -1.0 * scalar(c->loc_ext_field,p1->r.dip);
+#endif
+  return 0;
+}
+
 void reflect_particle(Particle *p1, double *distance_vec, int reflecting) {
   double vec[3];
   double norm; 
@@ -2616,6 +2647,10 @@ void add_constraints_forces(Particle *p1)
     case CONSTRAINT_EXT_MAGN_FIELD:
       add_ext_magn_field_force(p1, &constraints[n].c.emfield);
       break;
+    
+    case CONSTRAINT_LOC_EXT_FIELD:
+      add_loc_ext_field_force(p1, folded_pos, &constraints[n].c.lefield);
+      break;
 #endif
     
     case CONSTRAINT_PLANE:
@@ -2870,6 +2905,9 @@ double add_constraints_energy(Particle *p1)
       break;
     case CONSTRAINT_EXT_MAGN_FIELD:
       magnetic_en = ext_magn_field_energy(p1, &constraints[n].c.emfield);
+    
+    case CONSTRAINT_LOC_EXT_FIELD:
+      magnetic_en = loc_ext_field_energy(p1, folded_pos, &constraints[n].c.lefield);
       break;
       //@TODO: implement energy of Plane, Slitpore
   case CONSTRAINT_PLANE:
@@ -3002,100 +3040,154 @@ void calculate_slitpore_dist(Particle *p1, double ppos[3], Particle *c_p, Constr
 }
 
 void calculate_openslit_dist(Particle *p1, double ppos[3], Particle *c_p, Constraint_openslit *c, double *dist, double *vec) {
-  // the left circles
   double box_l_x = box_l[0];
-  double c11[2] = { box_l_x/2-c->pore_width/2-c->inner_smoothing_radius, c->channel_length - c->inner_smoothing_radius };
-  double c12[2] = { box_l_x/2-c->pore_width/2+c->outer_smoothing_radius, c->channel_length - c->pore_length  + c->outer_smoothing_radius };
+  double box_l_z = box_l[2];
+  // the left circles
+  double c11[2] = { box_l_x/2 - c->bulk_width/2 + c->outer_smoothing_radius, box_l_z/2 + c->slit_length/2 + c->outer_smoothing_radius };
+  double c12[2] = { box_l_x/2 - c->bulk_width/2 + c->outer_smoothing_radius, box_l_z/2 - c->slit_length/2 - c->outer_smoothing_radius };
+  double c13[2] = { box_l_x/2 - c->slit_width/2 - c->inner_smoothing_radius, box_l_z/2 + c->slit_length/2 - c->inner_smoothing_radius };
+  double c14[2] = { box_l_x/2 - c->slit_width/2 - c->inner_smoothing_radius, box_l_z/2 - c->slit_length/2 + c->inner_smoothing_radius };
   // the right circles
-  double c21[2] = { box_l_x/2+c->pore_width/2+c->inner_smoothing_radius, c->channel_length - c->inner_smoothing_radius };
-  double c22[2] = { box_l_x/2+c->pore_width/2-c->outer_smoothing_radius, c->channel_length - c->pore_length  + c->outer_smoothing_radius };
+  double c21[2] = { box_l_x/2 + c->bulk_width/2 - c->outer_smoothing_radius, box_l_z/2 + c->slit_length/2 + c->outer_smoothing_radius };
+  double c22[2] = { box_l_x/2 + c->bulk_width/2 - c->outer_smoothing_radius, box_l_z/2 - c->slit_length/2 - c->outer_smoothing_radius };
+  double c23[2] = { box_l_x/2 + c->slit_width/2 + c->inner_smoothing_radius, box_l_z/2 + c->slit_length/2 - c->inner_smoothing_radius };
+  double c24[2] = { box_l_x/2 + c->slit_width/2 + c->inner_smoothing_radius, box_l_z/2 - c->slit_length/2 + c->inner_smoothing_radius };
 
 //  printf("c11 %f %f\n", c11[0], c11[1]);
 //  printf("c12 %f %f\n", c12[0], c12[1]);
+//  printf("c11 %f %f\n", c13[0], c13[1]);
+//  printf("c12 %f %f\n", c14[0], c14[1]);
 //  printf("c21 %f %f\n", c21[0], c21[1]);
 //  printf("c22 %f %f\n", c22[0], c22[1]);
+//  printf("c21 %f %f\n", c23[0], c23[1]);
+//  printf("c22 %f %f\n", c24[0], c24[1]);
+    
 
-
-  if (ppos[2] > c->channel_length + c->channel_width/2) {
-//    printf("inner wall\n");
-    // Feel the inner wall
-    *dist = c->channel_length + c->channel_width - ppos[2];
-    vec[0] = vec[1] = 0;
-    vec[2] = -*dist;
-    return;
-  }
-
-  if (ppos[0]<c11[0] || ppos[0] > c21[0]) {
-    // Feel the outer wall of the channel
-//    printf("outer wall\n");
-    *dist = ppos[2] - c->channel_length;
-    vec[0] = vec[1] = 0;
-    vec[2] = *dist;
-    return;
-  }
-
-  if (ppos[2] > c11[1]) {
-    // Feel the inner smoothing
+  // Feel the bulk side wall
+  if (ppos[2] < c12[1] || ppos[2] > c11[1]) {
     if (ppos[0] < box_l_x/2) {
-//    printf("inner smoothing left\n");
-      *dist = sqrt( SQR(c11[0] - ppos[0]) + SQR(c11[1] - ppos[2])) - c->inner_smoothing_radius;
-      vec[0] = -( c11[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
-      vec[1] = 0;
-      vec[2] = -( c11[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
-      return;
-    } else {
-//    printf("inner smoothing right\n");
-      *dist = sqrt( SQR(c21[0] - ppos[0]) + SQR(c21[1] - ppos[2])) - c->inner_smoothing_radius;
-      vec[0] = -( c21[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
-      vec[1] = 0;
-      vec[2] = -( c21[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
-      return;
-    }
-  }
-  
-  if (ppos[2] > c12[1]) {
-    // Feel the pore wall
-    if (ppos[0] < box_l_x/2) {
-//    printf("pore left\n");
-      *dist = ppos[0] - (box_l_x/2-c->pore_width/2);
+//    printf("bulk side wall left\n");
+      *dist = ppos[0] - (box_l_x/2-c->bulk_width/2);
       vec[0]=*dist;
       vec[1]=vec[2]=0;
       return;
     } else {
-//    printf("pore right\n");
-      *dist =  (box_l_x/2+c->pore_width/2) - ppos[0];
+//    printf("bulk side wall right\n");
+      *dist =  (box_l_x/2+c->bulk_width/2) - ppos[0];
       vec[0]=-*dist;
       vec[1]=vec[2]=0;
       return;
     }
   }
 
-  if (ppos[0]>c12[0] && ppos[0] < c22[0]) {
-//    printf("pore end\n");
-    // Feel the pore end wall
-    *dist = ppos[2] - (c->channel_length-c->pore_length);
-    vec[0]=vec[1]=0;
-    vec[2]=*dist;
+  // Feel the outer smoothing
+  if (ppos[0] < c11[0] || ppos[0] > c21[0]) {
+    // outer smoothing bottom
+    if (ppos[2] < box_l_z/2) {
+      if (ppos[0] < box_l_x/2) {
+  //    printf("outer smoothing bottom left\n");
+        *dist = -sqrt( SQR(c12[0] - ppos[0]) + SQR(c12[1] - ppos[2])) + c->outer_smoothing_radius;
+        vec[0] = ( c12[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = ( c12[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        return;
+        } else {
+  //    printf("outer smoothing bottom right\n");
+        *dist = -sqrt( SQR(c22[0] - ppos[0]) + SQR(c22[1] - ppos[2])) + c->outer_smoothing_radius;
+        vec[0] = ( c22[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = ( c22[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        return;
+      }
+    } else {
+      // outer smoothing top
+      if (ppos[0] < box_l_x/2) {
+  //    printf("outer smoothing top left\n");
+        *dist = -sqrt( SQR(c11[0] - ppos[0]) + SQR(c11[1] - ppos[2])) + c->outer_smoothing_radius;
+        vec[0] = ( c11[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = ( c11[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        return;
+        } else {
+  //    printf("outer smoothing top right\n");
+        *dist = -sqrt( SQR(c21[0] - ppos[0]) + SQR(c21[1] - ppos[2])) + c->outer_smoothing_radius;
+        vec[0] = ( c21[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = ( c21[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+        return;
+      }
+    }
+  }
+
+  // Feel the bulk lower/upper wall
+  if (ppos[0]<c13[0] || ppos[0] > c23[0]) {
+    if (ppos[2] < box_l_z/2) {
+//    printf("bulk lower wall\n");
+      *dist = -ppos[2] + box_l_z/2 - c->slit_length/2;
+      vec[0] = vec[1] = 0;
+      vec[2] = -*dist;
+    } else {
+//    printf("bulk upper wall\n");
+      *dist = ppos[2] - box_l_z/2 - c->slit_length/2;
+      vec[0] = vec[1] = 0;
+      vec[2] = *dist;
+    }
     return;
   }
-  // Else
-  // Feel the outer smoothing
+    
+  // Feel the inner smoothing
+  if (ppos[2] > c13[1] || ppos[2] < c14[1]) {
+    // inner smoothing bottom
+    if (ppos[2] < box_l_z/2) {
+      if (ppos[0] < box_l_x/2) {
+  //    printf("inner smoothing bottom left\n");
+        *dist = sqrt( SQR(c14[0] - ppos[0]) + SQR(c14[1] - ppos[2])) - c->inner_smoothing_radius;
+        vec[0] = -( c14[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = -( c14[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        return;
+        } else {
+  //    printf("inner smoothing bottom right\n");
+        *dist = sqrt( SQR(c24[0] - ppos[0]) + SQR(c24[1] - ppos[2])) - c->inner_smoothing_radius;
+        vec[0] = -( c24[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = -( c24[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        return;
+      }
+    } else {
+    // inner smoothing top
+      if (ppos[0] < box_l_x/2) {
+  //    printf("inner smoothing top left\n");
+        *dist = sqrt( SQR(c13[0] - ppos[0]) + SQR(c13[1] - ppos[2])) - c->inner_smoothing_radius;
+        vec[0] = -( c13[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = -( c13[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        return;
+        } else {
+  //    printf("inner smoothing top right\n");
+        *dist = sqrt( SQR(c23[0] - ppos[0]) + SQR(c23[1] - ppos[2])) - c->inner_smoothing_radius;
+        vec[0] = -( c23[0] - ppos[0] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        vec[1] = 0;
+        vec[2] = -( c23[1] - ppos[2] ) * (*dist)/(*dist+c->inner_smoothing_radius);
+        return;
+      }
+    }
+  } else {
+  // Feel the slit wall
     if (ppos[0] < box_l_x/2) {
-//    printf("outer smoothing left\n");
-      *dist = -sqrt( SQR(c12[0] - ppos[0]) + SQR(c12[1] - ppos[2])) + c->outer_smoothing_radius;
-      vec[0] = ( c12[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
-      vec[1] = 0;
-      vec[2] = ( c12[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+//    printf("slit left\n");
+      *dist = ppos[0] - (box_l_x/2-c->slit_width/2);
+      vec[0]=*dist;
+      vec[1]=vec[2]=0;
       return;
     } else {
-//    printf("outer smoothing right\n");
-      *dist = -sqrt( SQR(c22[0] - ppos[0]) + SQR(c22[1] - ppos[2])) + c->outer_smoothing_radius;
-      vec[0] = ( c22[0] - ppos[0] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
-      vec[1] = 0;
-      vec[2] = ( c22[1] - ppos[2] ) * (*dist)/(-*dist+c->outer_smoothing_radius);
+//    printf("slit right\n");
+      *dist =  (box_l_x/2+c->slit_width/2) - ppos[0];
+      vec[0]=-*dist;
+      vec[1]=vec[2]=0;
       return;
     }
-
+  }
 
 }
 #endif
