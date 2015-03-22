@@ -110,10 +110,10 @@ void add_ext_magn_field_force(Particle *p1,
 double ext_magn_field_energy(Particle *p1, 
 			     Constraint_ext_magn_field *c);
 
-void add_loc_ext_field_force(Particle *p1, 
+void add_loc_ext_field_force(Particle *p1, double ppos[3],  
 			      Constraint_loc_ext_field *c);
 
-double loc_ext_field_energy(Particle *p1, 
+double loc_ext_field_energy(Particle *p1, double ppos[3],  
 			     Constraint_loc_ext_field *c);
 
 void reflect_particle(Particle *p1, double *distance_vec, 

@@ -2257,11 +2257,13 @@ double ext_magn_field_energy(Particle *p1, Constraint_ext_magn_field *c)
 void add_loc_ext_field_force(Particle *p1, double ppos[3], Constraint_loc_ext_field *c)
 {
 #ifdef ROTATION
-#ifdef DIPLES
+#ifdef DIPOLES
   int j;
   for (j = 0; j < 3; j++) {
-    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j])
-      return 0;
+    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j]) {
+      //printf("dim %d of part %d pos: %f %f %f is out of the field bounds.\n", j, p1->p.identity, ppos[0], ppos[1], ppos[2]); 
+      return;
+    }
   }
 
    p1->f.torque[0] += p1->r.dip[1]*c->loc_ext_field[2]-p1->r.dip[2]*c->loc_ext_field[1];
@@ -2274,10 +2276,13 @@ void add_loc_ext_field_force(Particle *p1, double ppos[3], Constraint_loc_ext_fi
 double loc_ext_field_energy(Particle *p1, double ppos[3], Constraint_loc_ext_field *c)
 {
 #ifdef DIPOLES
+ //     printf("min pos: %f %f %f, max pos %f %f %f.\n", c->pmin[0], c->pmin[1], c->pmin[2], c->pmax[0], c->pmax[1], c->pmax[2]); 
   int j;
   for (j = 0; j < 3; j++) {
-    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j])
+    if (ppos[j]<c->pmin[j] || ppos[j]>c->pmax[j]) {
+      //printf("dim %d of part %d pos: %f %f %f is out of the field bounds.\n", j, p1->p.identity, ppos[0], ppos[1], ppos[2]); 
       return 0;
+    }
   }
 
      return -1.0 * scalar(c->loc_ext_field,p1->r.dip);
@@ -2907,6 +2912,8 @@ double add_constraints_energy(Particle *p1)
       magnetic_en = ext_magn_field_energy(p1, &constraints[n].c.emfield);
     
     case CONSTRAINT_LOC_EXT_FIELD:
+      //printf("energy of: part %d pos: %f %f %f. \n", p1->p.identity, folded_pos[0], folded_pos[1], folded_pos[2]); 
+      
       magnetic_en = loc_ext_field_energy(p1, folded_pos, &constraints[n].c.lefield);
       break;
       //@TODO: implement energy of Plane, Slitpore

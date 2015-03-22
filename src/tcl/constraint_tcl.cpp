@@ -1754,9 +1754,12 @@ int tclcommand_constraint_parse_loc_ext_field(Constraint *con, Tcl_Interp *inter
   con->type = CONSTRAINT_LOC_EXT_FIELD;
   con->part_rep.p.type=-1;
 
-  for(i=0; i<3; i++)
+  for(i=0; i<3; i++) {
      con->c.lefield.loc_ext_field[i] = 0.;
-  
+     con->c.lefield.pmin[i] = 0.;
+     con->c.lefield.pmax[i] = 0.;
+  }
+
   while (argc > 0) {
     if(!strncmp(argv[0], "field", strlen(argv[0]))) {
       if(argc < 4) {
