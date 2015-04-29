@@ -855,7 +855,7 @@ void calc_structurefactor(int type, int order, double **_ff) {
 }
 
 void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **_ff) {
-  int i, j, k, n, qi, p, order2;
+  int i, j, n, qi, p, order2;
   double qr, twoPI_L, C_sum, S_sum, *ff=NULL; 
 
   order2 = order*order;
@@ -863,7 +863,7 @@ void calc_structurefactor_2d(int type, int order, int dir, double dmin, double d
   
 
   twoPI_L = 2*PI/box_l[(dir+1) % 3];
-  
+
   if ((type < 0) || (type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",type); fflush(NULL); errexit(); }
   else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
   else {

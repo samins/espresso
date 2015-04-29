@@ -1680,8 +1680,8 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     char buffer[2 * TCL_DOUBLE_SPACE + 4];
     int i, type, order, dir;
     double qfak, dmin, dmax, *sf;
-    if (argc < 5) {
-        Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> <dmin> <dmax>",
+    if (argc < 3) {
+        Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> [<dmin> <dmax>]",
                 (char *) NULL);
         return (TCL_ERROR);
     } else {
@@ -1689,15 +1689,35 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
             return (TCL_ERROR);
         if (!ARG1_IS_I(order))
             return (TCL_ERROR);
-        if (!ARG1_IS_I(dir))
+        argc -= 2;
+        argv += 2;
+    }
+
+    if (argc == 1) {
+        if (!ARG0_IS_I(dir))
             return (TCL_ERROR);
-        if (!ARG1_IS_D(dmin))
+        dmin = 0;
+        dmax = box_l[(dir+1) % 3];
+        
+        argc -= 1;
+        argv += 1;
+    } else if (argc == 3) {
+        if (!ARG0_IS_I(dir))
+            return (TCL_ERROR);
+        argc -= 1;
+        argv += 1;
+        if (!ARG0_IS_D(dmin))
             return (TCL_ERROR);
         if (!ARG1_IS_D(dmax))
             return (TCL_ERROR);
-        argc -= 5;
-        argv += 5;
+        argc -= 2;
+        argv += 2;
+    } else {
+        Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> [<dmin> <dmax>]",
+                (char *) NULL);
+        return (TCL_ERROR);
     }
+
     updatePartCfg(WITHOUT_BONDS);
     calc_structurefactor_2d(type, order, dir, dmin, dmax, &sf);
 
