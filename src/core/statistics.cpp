@@ -870,7 +870,7 @@ void calc_structurefactor_2d(int type, int order, int dir, double dmin, double d
     for(qi=0; qi<2*order2; qi++) {
       ff[qi] = 0.0;
     }
-    for(i=0; i<=order; i++) {
+    for(i=-order; i<=order; i++) {
       for(j=-order; j<=order; j++) {
 	n = i*i + j*j;
 	if ((n<=order2) && (n>=1)) {
@@ -893,8 +893,17 @@ void calc_structurefactor_2d(int type, int order, int dir, double dmin, double d
     for(p=0; p<n_part; p++) {
       if (partCfg[p].p.type == type && partCfg[p].r.p[dir]>=dmin && partCfg[p].r.p[dir]<=dmax) n++;
     }
-    for(qi=0; qi<order2; qi++) 
-      if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+    if (n!=0) {
+      for(qi=0; qi<order2; qi++) 
+        if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+    } 
+    
+    //else {
+    //  fprintf(stderr,"WARNING! no particles in range!\n");
+    //  for(qi=0; qi<order2; qi++) 
+    //    ff[2*qi] = 0.0;
+    //}
+    
   }
 }
 
