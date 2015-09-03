@@ -24,10 +24,17 @@
     This file contains the code for statistics on the data.
 */
 
+#include <vector>
+
+#include "grid.hpp"
 #include "particle_data.hpp"
 #include "interaction_data.hpp"
 #include "utils.hpp"
 #include "topology.hpp"
+
+#include <vector>
+#include <string>
+#include <map>
 
 /** \name Data Types */
 /************************************************************/
@@ -326,12 +333,16 @@ void calc_structurefactor(int type, int order, double **sf);
     @param sf     pointer to hold the base of the array containing the result (size: 2*order^2).
 */
 
-void calc_structurefactor(int type, int order, double **sf);
 void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **sf);
 	  
+std::vector< std::vector<double> > modify_stucturefactor( int order, double *sf);
 
 /** Calculates the density profile in dir direction */
 void density_profile_av(int n_conf, int n_bin, double density, int dir, double *rho_ave, int type);
+
+int calc_cylindrical_average(std::vector<double> center, std::vector<double> direction, double length,
+                             double radius, int bins_axial, int bins_radial, std::vector<int> types,
+                             std::map<std::string, std::vector<std::vector<std::vector<double> > > > &distribution);
 
 int calc_radial_density_map (int xbins,int ybins,int thetabins,double xrange,double yrange, double axis[3], double center[3], IntList *beadids, DoubleList *density_map, DoubleList *density_profile);
 
@@ -392,6 +403,7 @@ void predict_momentum_particles(double *result);
 \todo Docs missing
 */
 void momentum_calc(double *momentum);
+std::vector<double> calc_linear_momentum(int include_particles, int include_lbfluid);
 
 inline double *obsstat_bonded(Observable_stat *stat, int j)
 {
