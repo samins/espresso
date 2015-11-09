@@ -851,7 +851,7 @@ void calc_structurefactor(int type, int order, double **_ff) {
   *_ff = ff = (double*)Utils::realloc(ff,2*order2*sizeof(double));
   twoPI_L = 2*PI/box_l[0];
   
-  if ((type < 0) || (type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",type); fflush(NULL); errexit(); }
+  if ((type < -1) || (type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",type); fflush(NULL); errexit(); }
   else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
   else {
     for(qi=0; qi<2*order2; qi++) {
@@ -864,7 +864,7 @@ void calc_structurefactor(int type, int order, double **_ff) {
 	  if ((n<=order2) && (n>=1)) {
 	    C_sum = S_sum = 0.0;
 	    for(p=0; p<n_part; p++) {
-	      if (partCfg[p].p.type == type) {
+	      if ((partCfg[p].p.type == type) || (type == -1)) {
 		qr = twoPI_L * ( i*partCfg[p].r.p[0] + j*partCfg[p].r.p[1] + k*partCfg[p].r.p[2] );
 		C_sum+= cos(qr);
 		S_sum+= sin(qr);
@@ -878,7 +878,7 @@ void calc_structurefactor(int type, int order, double **_ff) {
     }
     n = 0;
     for(p=0; p<n_part; p++) {
-      if (partCfg[p].p.type == type) n++;
+      if ((partCfg[p].p.type == type) || (type == -1)) n++;
     }
     for(qi=0; qi<order2; qi++) 
       if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
