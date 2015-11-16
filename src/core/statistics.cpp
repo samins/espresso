@@ -885,6 +885,64 @@ void calc_structurefactor(int type, int order, double **_ff) {
   }
 }
 
+void calc_structurefactor2(int p1_type, int p2_type, int order, double **_ff) {
+  int i, j, k, n, qi, p1, p2, order2;
+  double qr, twoPI_L, C_sum, S_sum, *ff=NULL;
+  double diff[3];
+  
+  order2 = order*order;
+  *_ff = ff = (double*)Utils::realloc(ff,2*order2*sizeof(double));
+  twoPI_L = 2*PI/box_l[0];
+  
+  if ((p1_type < 0) || (p1_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p1_type); fflush(NULL); errexit(); }
+  if ((p2_type < 0) || (p2_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p2_type); fflush(NULL); errexit(); }
+  else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
+  else {
+    for(qi=0; qi<2*order2; qi++) {
+      ff[qi] = 0.0;
+    }
+
+    for(i=0; i<=order; i++) {
+      for(j=-order; j<=order; j++) {
+        for(k=-order; k<=order; k++) {
+	  n = i*i + j*j + k*k;
+	  if ((n<=order2) && (n>=1)) {
+	    C_sum = S_sum = 0.0;
+
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type) {
+	        for(p2=0; p2<n_part; p2++) {
+	          if(partCfg[p2].p.type == p2_type) {	          
+              get_mi_vector(diff, partCfg[p1].r.p, partCfg[p2].r.p);
+		          qr = twoPI_L * ( i*diff[0] + j*diff[1] + k*diff[2] );
+          		C_sum+= cos(qr);
+          		S_sum+= sin(qr);
+	          }
+	        }
+	      }
+	    }
+	    
+	    ff[2*n-2]+= C_sum*C_sum + S_sum*S_sum;
+	    ff[2*n-1]++;
+	  }
+	}
+      }
+    }
+    n = 0;
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type) {
+	        for(p2=0; p2<n_part; p2++) {
+	          if(partCfg[p2].p.type == p2_type) {	          
+              n+;
+	          }
+	        }
+	      }
+	    }
+    for(qi=0; qi<order2; qi++) 
+      if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+  }
+}
+
 void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **_ff) {
   int i, j, n, qi, p, order2;
   double qr, twoPI_L, C_sum, S_sum, *ff=NULL; 
@@ -924,6 +982,79 @@ void calc_structurefactor_2d(int type, int order, int dir, double dmin, double d
     for(p=0; p<n_part; p++) {
       if (partCfg[p].p.type == type && partCfg[p].r.p[dir]>=dmin && partCfg[p].r.p[dir]<=dmax) n++;
     }
+    if (n!=0) {
+      for(qi=0; qi<order2; qi++) 
+        if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+    } 
+    
+    //else {
+    //  fprintf(stderr,"WARNING! no particles in range!\n");
+    //  for(qi=0; qi<order2; qi++) 
+    //    ff[2*qi] = 0.0;
+    //}
+    
+  }
+}
+
+void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, double dmin, double dmax, double **_ff) {
+  int i, j, n, qi, p, order2;
+  double qr, twoPI_L, C_sum, S_sum, *ff=NULL; 
+
+  order2 = order*order;
+  *_ff = ff = (double*)realloc(ff,2*order2*sizeof(double));
+  
+
+  twoPI_L = 2*PI/box_l[(dir+1) % 3];
+
+  if ((p1_type < 0) || (p1_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p1_type); fflush(NULL); errexit(); }
+  if ((p2_type < 0) || (p2_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p2_type); fflush(NULL); errexit(); }
+  else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
+  else {
+    for(qi=0; qi<2*order2; qi++) {
+      ff[qi] = 0.0;
+    }
+    for(i=-order; i<=order; i++) {
+      for(j=-order; j<=order; j++) {
+	n = i*i + j*j;
+	if ((n<=order2) && (n>=1)) {
+	  C_sum = S_sum = 0.0;
+
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type) {
+	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
+	          for(p2=0; p2<n_part; p2++) {
+	            if(partCfg[j].p.type == p2_type) {	          
+	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
+                  get_mi_vector(diff, partCfg[p1].r.p, partCfg[p2].r.p);
+		              qr = twoPI_L * ( i*diff[0] + j*diff[1] + k*diff[2] );
+          		    C_sum+= cos(qr);
+          		    S_sum+= sin(qr);
+                }
+	            }
+	          }
+          }
+	      }
+	    }
+
+	  ff[2*n-2]+= C_sum*C_sum + S_sum*S_sum;
+	  ff[2*n-1]++;
+	}
+      }
+    }
+    n = 0;
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type) {
+	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
+	          for(p2=0; p2<n_part; p2++) {
+	            if(partCfg[j].p.type == p2_type) {	          
+	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
+                  n++;
+                }
+	            }
+	          }
+          }
+	      }
+	    }
     if (n!=0) {
       for(qi=0; qi<order2; qi++) 
         if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];

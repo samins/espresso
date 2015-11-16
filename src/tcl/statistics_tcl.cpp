@@ -1805,22 +1805,37 @@ int tclcommand_analyze_parse_structurefactor(Tcl_Interp *interp, int argc, char 
     /* 'analyze { stucturefactor } <type> <order>' */
     /***********************************************************************************************************/
     char buffer[2 * TCL_DOUBLE_SPACE + 4];
-    int i, type, order;
+    int i, type, type2, order;
     double qfak, *sf;
     if (argc < 2) {
         Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor <type> <order> [<chain_start> <n_chains> <chain_length>]",
                 (char *) NULL);
         return (TCL_ERROR);
-    } else {
+    } else if (argc == 2) {
         if (!ARG0_IS_I(type))
             return (TCL_ERROR);
         if (!ARG1_IS_I(order))
             return (TCL_ERROR);
         argc -= 2;
         argv += 2;
+        type2 = -1;
+    } else {
+        if (!ARG0_IS_I(type))
+            return (TCL_ERROR);
+        if (!ARG1_IS_I(type2))
+            return (TCL_ERROR);
+        argc -= 2;
+        argv += 2;
+        if (!ARG0_IS_I(order)) return (TCL_ERROR);
+        argc--;
+        argv++;
     }
     updatePartCfg(WITHOUT_BONDS);
-    calc_structurefactor(type, order, &sf);
+    if (type2 ==-1) {
+      calc_structurefactor(type, order, &sf);
+    } else {
+      calc_structurefactor2(type, type2, order, &sf);
+    } 
 
     qfak = 2.0 * PI / box_l[0];
     for (i = 0; i < order * order; i++) {
@@ -1837,7 +1852,7 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     /* 'analyze { stucturefactor2d } <type> <order> <dir> <dmin> <dmax>' */
     /***********************************************************************************************************/
     char buffer[2 * TCL_DOUBLE_SPACE + 4];
-    int i, type, order, dir;
+    int i, type, type2, order, dir;
     double qfak, dmin, dmax, *sf;
     if (argc < 3) {
         Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> [<dmin> <dmax>]",
@@ -1846,11 +1861,15 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     } else {
         if (!ARG0_IS_I(type))
             return (TCL_ERROR);
-        if (!ARG1_IS_I(order))
+        if (!ARG1_IS_I(type2))
             return (TCL_ERROR);
         argc -= 2;
         argv += 2;
     }
+        
+    if (!ARG0_IS_I(order)) return (TCL_ERROR);
+    argc--;
+    argv++;
 
     if (argc == 1) {
         if (!ARG0_IS_I(dir))
@@ -1878,7 +1897,11 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     }
 
     updatePartCfg(WITHOUT_BONDS);
-    calc_structurefactor_2d(type, order, dir, dmin, dmax, &sf);
+    if (type == type2) {
+      calc_structurefactor_2d(type, order, dir, dmin, dmax, &sf);
+    } else {
+      calc_structurefactor2_2d(type, type2, order, dir, dmin, dmax, &sf);
+    } 
 
     qfak = 2.0 * PI / box_l[(dir+1) % 3];
     for (i = 0; i < order * order; i++) {
