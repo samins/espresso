@@ -318,7 +318,7 @@ double calc_vanhove(int ptype, double rmin, double rmax, int rbins, int tmax, do
 */
 
 void calc_structurefactor(int type, int order, double **sf);
-void calc_structurefactor(int type, int type2, int order, double **sf);
+void calc_structurefactor2(int type, int type2, int order, double **sf);
 
 /** Calculates the 2D structure factor in a slab.
 
@@ -335,7 +335,7 @@ void calc_structurefactor(int type, int type2, int order, double **sf);
 */
 
 void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **sf);
-void calc_structurefactor_2d(int type, int type2, int order, int dir, double dmin, double dmax, double **sf);
+void calc_structurefactor2_2d(int type, int type2, int order, int dir, double dmin, double dmax, double **sf);
 	  
 std::vector< std::vector<double> > modify_stucturefactor( int order, double *sf);
 

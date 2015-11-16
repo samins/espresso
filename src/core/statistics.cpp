@@ -933,7 +933,7 @@ void calc_structurefactor2(int p1_type, int p2_type, int order, double **_ff) {
         if(partCfg[p1].p.type == p1_type) {
 	        for(p2=0; p2<n_part; p2++) {
 	          if(partCfg[p2].p.type == p2_type) {	          
-              n+;
+              n++;
 	          }
 	        }
 	      }
@@ -997,8 +997,9 @@ void calc_structurefactor_2d(int type, int order, int dir, double dmin, double d
 }
 
 void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, double dmin, double dmax, double **_ff) {
-  int i, j, n, qi, p, order2;
+  int i, j, n, qi, p1, p2, order2;
   double qr, twoPI_L, C_sum, S_sum, *ff=NULL; 
+  double diff[3];
 
   order2 = order*order;
   *_ff = ff = (double*)realloc(ff,2*order2*sizeof(double));
@@ -1026,7 +1027,7 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
 	            if(partCfg[j].p.type == p2_type) {	          
 	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
                   get_mi_vector(diff, partCfg[p1].r.p, partCfg[p2].r.p);
-		              qr = twoPI_L * ( i*diff[0] + j*diff[1] + k*diff[2] );
+		              qr = twoPI_L * ( i*diff[(dir+1) % 3] + j*diff[(dir+2) % 3]);
           		    C_sum+= cos(qr);
           		    S_sum+= sin(qr);
                 }
