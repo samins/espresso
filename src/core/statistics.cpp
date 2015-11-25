@@ -1058,7 +1058,7 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
 	      }
 	    }
     if (n!=0) {
-      fprintf(stderr,"# of particles in range %d\n",n);
+      //fprintf(stderr,"# of particles in range %d\n",n);
       for(qi=0; qi<order2; qi++) 
         if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
     } 
