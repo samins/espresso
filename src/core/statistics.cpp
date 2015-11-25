@@ -1024,9 +1024,10 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
         if(partCfg[p1].p.type == p1_type) {
 	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
 	          for(p2=0; p2<n_part; p2++) {
-	            if(partCfg[j].p.type == p2_type) {	          
+	            if(partCfg[p2].p.type == p2_type) {	          
 	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
                   get_mi_vector(diff, partCfg[p1].r.p, partCfg[p2].r.p);
+                  //fprintf(stderr,"distance vector or %d-t%d and %d-t%d: %f, %f, %f \n",p1,p1_type,p2,p2_type,diff[0],diff[1],diff[2]);
 		              qr = twoPI_L * ( i*diff[(dir+1) % 3] + j*diff[(dir+2) % 3]);
           		    C_sum+= cos(qr);
           		    S_sum+= sin(qr);
@@ -1047,7 +1048,7 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
         if(partCfg[p1].p.type == p1_type) {
 	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
 	          for(p2=0; p2<n_part; p2++) {
-	            if(partCfg[j].p.type == p2_type) {	          
+	            if(partCfg[p2].p.type == p2_type) {	          
 	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
                   n++;
                 }
@@ -1057,6 +1058,7 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
 	      }
 	    }
     if (n!=0) {
+      fprintf(stderr,"# of particles in range %d\n",n);
       for(qi=0; qi<order2; qi++) 
         if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
     } 
