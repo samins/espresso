@@ -1045,15 +1045,15 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
     }
     n = 0;
       for(p1=0; p1<n_part; p1++) {
-        if(partCfg[p1].p.type == p1_type) {
+        if(partCfg[p1].p.type == p1_type || partCfg[p1].p.type == p2_type) {
 	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
-	          for(p2=0; p2<n_part; p2++) {
-	            if(partCfg[p2].p.type == p2_type) {	          
-	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
+	        //  for(p2=0; p2<n_part; p2++) {
+	        //    if(partCfg[p2].p.type == p2_type) {	          
+	        //      if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
                   n++;
-                }
-	            }
-	          }
+          //      }
+	        //    }
+	        //  }
           }
 	      }
 	    }
@@ -1061,6 +1061,88 @@ void calc_structurefactor2_2d(int p1_type, int p2_type, int order, int dir, doub
       //fprintf(stderr,"# of particles in range %d\n",n);
       for(qi=0; qi<order2; qi++) 
         if (ff[2*qi+1]!=0) ff[2*qi]/= n*ff[2*qi+1];
+    } 
+    
+    //else {
+    //  fprintf(stderr,"WARNING! no particles in range!\n");
+    //  for(qi=0; qi<order2; qi++) 
+    //    ff[2*qi] = 0.0;
+    //}
+    
+  }
+}
+void calc_structurefactor3_2d(int p1_type, int p2_type, int order, int dir, double dmin, double dmax, double **_ffr, double **_ffi) {
+  int i, j, n, qi, p1, p2, order2;
+  double qr, twoPI_L, C_sum, S_sum, *ffr=NULL, *ffi=NULL; 
+  double diff[3];
+
+  order2 = order*order;
+  *_ffr = ffr = (double*)realloc(ffr,2*order2*sizeof(double));
+  *_ffi = ffi = (double*)realloc(ffi,2*order2*sizeof(double));
+  
+
+  twoPI_L = 2*PI/box_l[(dir+1) % 3];
+
+  if ((p1_type < 0) || (p1_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p1_type); fflush(NULL); errexit(); }
+  if ((p2_type < 0) || (p2_type > n_particle_types)) { fprintf(stderr,"WARNING: Type %i does not exist!",p2_type); fflush(NULL); errexit(); }
+  else if (order < 1) { fprintf(stderr,"WARNING: parameter \"order\" has to be a whole positive number"); fflush(NULL); errexit(); }
+  else {
+    for(qi=0; qi<2*order2; qi++) {
+      ffr[qi] = 0.0;
+      ffi[qi] = 0.0;
+    }
+    for(i=-order; i<=order; i++) {
+      for(j=-order; j<=order; j++) {
+	n = i*i + j*j;
+	if ((n<=order2) && (n>=1)) {
+	  C_sum = S_sum = 0.0;
+
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type) {
+	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
+	          for(p2=0; p2<n_part; p2++) {
+	            if(partCfg[p2].p.type == p2_type) {	          
+	              if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
+                  get_mi_vector(diff, partCfg[p1].r.p, partCfg[p2].r.p);
+                  //fprintf(stderr,"distance vector or %d-t%d and %d-t%d: %f, %f, %f \n",p1,p1_type,p2,p2_type,diff[0],diff[1],diff[2]);
+		              qr = twoPI_L * ( i*diff[(dir+1) % 3] + j*diff[(dir+2) % 3]);
+          		    C_sum+= cos(qr);
+          		    S_sum+= sin(qr);
+                }
+	            }
+	          }
+          }
+	      }
+	    }
+
+	  ffr[2*n-2]+= C_sum;
+	  ffr[2*n-1]++;
+	  ffi[2*n-2]+= S_sum;
+	  ffi[2*n-1]++;
+	}
+      }
+    }
+    n = 0;
+      for(p1=0; p1<n_part; p1++) {
+        if(partCfg[p1].p.type == p1_type || partCfg[p1].p.type == p2_type) {
+	        if (partCfg[p1].r.p[dir]>=dmin && partCfg[p1].r.p[dir]<=dmax) {
+	        //  for(p2=0; p2<n_part; p2++) {
+	        //    if(partCfg[p2].p.type == p2_type) {	          
+	        //      if (partCfg[p2].r.p[dir]>=dmin && partCfg[p2].r.p[dir]<=dmax) {
+                  n++;
+          //      }
+	        //    }
+	        //  }
+          }
+	      }
+	    }
+    if (n!=0) {
+      //fprintf(stderr,"# of particles in range %d\n",n);
+      for(qi=0; qi<order2; qi++) {
+        //if (ffi[2*qi+1]!=0) fprintf(stderr,"q=%d c=%6.4e s=%6.4e, ",qi,ffr[2*qi],ffi[2*qi]);
+        if (ffr[2*qi+1]!=0) ffr[2*qi]/= n*ffr[2*qi+1];
+        if (ffi[2*qi+1]!=0) ffi[2*qi]/= n*ffr[2*qi+1];
+      }
     } 
     
     //else {

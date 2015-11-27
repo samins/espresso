@@ -336,6 +336,7 @@ void calc_structurefactor2(int type, int type2, int order, double **sf);
 
 void calc_structurefactor_2d(int type, int order, int dir, double dmin, double dmax, double **sf);
 void calc_structurefactor2_2d(int type, int type2, int order, int dir, double dmin, double dmax, double **sf);
+void calc_structurefactor3_2d(int type, int type2, int order, int dir, double dmin, double dmax, double **sfr, double **sfi);
 	  
 std::vector< std::vector<double> > modify_stucturefactor( int order, double *sf);
 

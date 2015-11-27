@@ -1852,8 +1852,9 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     /* 'analyze { stucturefactor2d } <type> <order> <dir> <dmin> <dmax>' */
     /***********************************************************************************************************/
     char buffer[2 * TCL_DOUBLE_SPACE + 4];
+    char buffer2[3 * TCL_DOUBLE_SPACE + 5];
     int i, p1_type, p2_type, order, dir;
-    double qfak, dmin, dmax, *sf;
+    double qfak, dmin, dmax, *sf, *sf2;
     if (argc < 3) {
         Tcl_AppendResult(interp, "Wrong # of args! Usage: analyze structurefactor2d <type> <order> <dir> [<dmin> <dmax>]",
                 (char *) NULL);
@@ -1900,17 +1901,24 @@ int tclcommand_analyze_parse_structurefactor_2d(Tcl_Interp *interp, int argc, ch
     if (p1_type == p2_type) {
       calc_structurefactor_2d(p1_type, order, dir, dmin, dmax, &sf);
     } else {
-      calc_structurefactor2_2d(p1_type, p2_type, order, dir, dmin, dmax, &sf);
+      //calc_structurefactor2_2d(p1_type, p2_type, order, dir, dmin, dmax, &sf);
+      calc_structurefactor3_2d(p1_type, p2_type, order, dir, dmin, dmax, &sf, &sf2);
     } 
 
     qfak = 2.0 * PI / box_l[(dir+1) % 3];
     for (i = 0; i < order * order; i++) {
         if (sf[2 * i + 1] > 0) {
-            sprintf(buffer, "{%f %f} ", qfak * sqrt(i + 1), sf[2 * i]);
-            Tcl_AppendResult(interp, buffer, (char *) NULL);
+          if (p1_type == p2_type) {
+              sprintf(buffer, "{%f %f} ", qfak * sqrt(i + 1), sf[2 * i]);
+              Tcl_AppendResult(interp, buffer, (char *) NULL);
+          } else {
+              sprintf(buffer2, "{%f %f %f} ", qfak * sqrt(i + 1), sf[2 * i], sf2[2 * i]);
+              Tcl_AppendResult(interp, buffer2, (char *) NULL);
+          }
         }
     }
     free(sf);
+    if (p1_type != p2_type) free(sf2);
     return (TCL_OK);
 }
 
